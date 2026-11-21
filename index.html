@@ -637,6 +637,9 @@
     let frame;
     let sound = true;
     let audio;
+    let audioOutput;
+    let lastSecond;
+    const soundVolume = 0.30;
 
     function format(seconds) {
       return [Math.floor(seconds / 60), seconds % 60]
@@ -711,24 +714,31 @@
       const Audio = window.AudioContext || window.webkitAudioContext;
       if (!Audio) return;
       try {
-        audio ??= new Audio();
-        audio.resume().catch(() => {});
+        if (!audio) {
+          audio = new Audio();
+          audioOutput = audio.createGain();
+          audioOutput.gain.value = paused ? 0 : soundVolume;
+          audioOutput.connect(audio.destination);
+        }
+        return audio.resume().catch(() => {});
       } catch {
         audio = undefined;
+        audioOutput = undefined;
       }
     }
 
-    function beep(frequency) {
-      if (!sound || audio?.state !== 'running') return;
+    function beep(frequency, duration = 0.22, level = 1, type = 'sine') {
+      if (!sound || paused || audio?.state !== 'running') return;
       const wave = audio.createOscillator();
       const volume = audio.createGain();
       const start = audio.currentTime;
+      wave.type = type;
       wave.frequency.value = frequency;
-      volume.gain.setValueAtTime(0.12, start);
-      volume.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
-      wave.connect(volume).connect(audio.destination);
+      volume.gain.setValueAtTime(level, start);
+      volume.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      wave.connect(volume).connect(audioOutput);
       wave.start(start);
-      wave.stop(start + 0.22);
+      wave.stop(start + duration);
     }
 
     function renderStage() {
@@ -760,20 +770,36 @@
       }
       if (stage !== previous) {
         renderStage();
-        beep(stages[stage]?.type === 'rest' ? 520 : 880);
+        lastSecond = undefined;
       }
-      if (!stages[stage]) {
+      const current = stages[stage];
+      if (!current) {
+        beep(880);
         paintTime(0, 0);
         el('stop').focus();
         return;
       }
       remaining = Math.max(0, deadline - now);
-      paintTime(remaining, stages[stage].duration);
+      const seconds = Math.ceil(remaining / 1000);
+      if (seconds !== lastSecond) {
+        lastSecond = seconds;
+        if (current.type === 'work') {
+          const elapsedSeconds = current.duration / 1000 - seconds;
+          if (stage !== previous) beep(1040);
+          else if (elapsedSeconds > 0) {
+            beep(elapsedSeconds % 2 ? 620 : 440, 0.08, 0.66, 'triangle');
+          }
+        } else if (current.type === 'rest') {
+          if (seconds <= 3) beep(740, 0.14);
+          else if (stage !== previous) beep(520);
+        }
+      }
+      paintTime(remaining, current.duration);
       frame = requestAnimationFrame(tick);
     }
 
     el('start').onclick = () => {
-      unlockAudio();
+      const audioReady = unlockAudio();
       const [prep, work, rest, rounds] = settings;
       stages = [];
       if (prep) stages.push({ type: 'prep', duration: prep * 1000, round: 1 });
@@ -783,13 +809,23 @@
       }
       stage = 0;
       paused = false;
-      deadline = performance.now() + stages[0].duration;
+      if (audioOutput) audioOutput.gain.value = sound ? soundVolume : 0;
+      lastSecond = undefined;
+      const first = stages[0];
+      deadline = performance.now() + first.duration;
       el('setup-view').style.display = 'none';
       el('timer-view').style.display = 'flex';
       el('pause').textContent = '暫停';
       renderStage();
       el('pause').focus();
       tick();
+      if (first.type === 'work') {
+        audioReady?.then(() => {
+          if (stages[stage] === first && lastSecond === first.duration / 1000 && frame !== undefined) {
+            beep(1040);
+          }
+        });
+      }
     };
 
     el('pause').onclick = () => {
@@ -797,11 +833,13 @@
         unlockAudio();
         deadline = performance.now() + remaining;
         paused = false;
+        if (audioOutput) audioOutput.gain.value = sound ? soundVolume : 0;
         el('pause').textContent = '暫停';
         tick();
         return;
       }
       cancelAnimationFrame(frame);
+      if (audioOutput) audioOutput.gain.value = 0;
       remaining = Math.max(0, deadline - performance.now());
       paused = true;
       paintTime(remaining, stages[stage].duration);
@@ -814,6 +852,8 @@
 
     el('stop').onclick = () => {
       cancelAnimationFrame(frame);
+      frame = undefined;
+      if (audioOutput) audioOutput.gain.value = 0;
       document.body.className = '';
       el('timer-view').style.display = 'none';
       el('setup-view').style.removeProperty('display');
@@ -830,6 +870,7 @@
       sound = !sound;
       el('sound-toggle').textContent = sound ? '🔊' : '🔇';
       el('sound-toggle').setAttribute('aria-pressed', String(sound));
+      if (audioOutput) audioOutput.gain.value = sound && !paused ? soundVolume : 0;
       unlockAudio();
     };
     if (location.protocol === 'file:') el('offline-badge').classList.add('ready');
