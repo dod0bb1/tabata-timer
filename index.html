@@ -8,34 +8,6 @@
   <meta name="apple-mobile-web-app-title" content="Tabata計時" />
   <meta name="theme-color" content="#0f172a" />
   <title>Tabata 間歇計時器</title>
-  <script>
-    // 動態產生內嵌 PWA Manifest 與專屬圖示（維持單一檔案結構）
-    (function setupPWA() {
-      const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0f172a"/><circle cx="256" cy="272" r="156" fill="none" stroke="#38bdf8" stroke-width="28"/><path d="M256 180v92l64 40" fill="none" stroke="#f8fafc" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/><rect x="216" y="64" width="80" height="24" rx="12" fill="#38bdf8"/></svg>`;
-      const iconUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
-
-      const appleIcon = document.createElement('link');
-      appleIcon.rel = 'apple-touch-icon';
-      appleIcon.href = iconUrl;
-      document.head.appendChild(appleIcon);
-
-      if (location.protocol.startsWith('http')) {
-        const manifest = {
-          name: 'Tabata 間歇計時器',
-          short_name: 'Tabata計時',
-          start_url: location.href,
-          display: 'standalone',
-          background_color: '#0f172a',
-          theme_color: '#0f172a',
-          icons: [{ src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }]
-        };
-        const manifestLink = document.createElement('link');
-        manifestLink.rel = 'manifest';
-        manifestLink.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
-        document.head.appendChild(manifestLink);
-      }
-    })();
-  </script>
   <style>
     :root {
       --bg-setup: #0f172a;
@@ -82,7 +54,7 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
+      justify-content: space-between;
     }
 
     /* 頂部列 */
@@ -569,312 +541,632 @@
       </div>
       <button id="sound-toggle" class="icon-btn" title="音效開關">🔊</button>
     </header>
+
+    <!-- 設定畫面 -->
     <main id="setup-view">
       <div class="setup-col-left">
-        <div class="presets" id="presets"></div>
-        <div id="settings" class="setup-col-left"></div>
+        <div class="presets">
+          <button type="button" class="preset-btn" id="preset-tabata">
+            經典 Tabata<span>20s 動 / 10s 休 × 8</span>
+          </button>
+          <button type="button" class="preset-btn" id="preset-hiit">
+            高強度 HIIT<span>40s 動 / 20s 休 × 6</span>
+          </button>
+          <button type="button" class="preset-btn" id="preset-circuit">
+            循環訓練<span>30s 動 / 15s 休 × 6</span>
+          </button>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-info">
+            <label>預備暖身</label>
+            <small>開始前的緩衝倒數</small>
+          </div>
+          <div class="stepper">
+            <button type="button" class="step-btn" data-key="prep" data-delta="-5">−</button>
+            <div class="step-val" id="val-prep">5s</div>
+            <button type="button" class="step-btn" data-key="prep" data-delta="5">+</button>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-info">
+            <label>運動時間</label>
+            <small>全力訓練秒數</small>
+          </div>
+          <div class="stepper">
+            <button type="button" class="step-btn" data-key="work" data-delta="-5">−</button>
+            <div class="step-val" id="val-work">20s</div>
+            <button type="button" class="step-btn" data-key="work" data-delta="5">+</button>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-info">
+            <label>休息時間</label>
+            <small>組間喘息秒數</small>
+          </div>
+          <div class="stepper">
+            <button type="button" class="step-btn" data-key="rest" data-delta="-5">−</button>
+            <div class="step-val" id="val-rest">10s</div>
+            <button type="button" class="step-btn" data-key="rest" data-delta="5">+</button>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-info">
+            <label>訓練回合</label>
+            <small>總共重複組數</small>
+          </div>
+          <div class="stepper">
+            <button type="button" class="step-btn" data-key="rounds" data-delta="-1">−</button>
+            <div class="step-val" id="val-rounds">8</div>
+            <button type="button" class="step-btn" data-key="rounds" data-delta="1">+</button>
+          </div>
+        </div>
       </div>
+
       <div class="setup-col-right">
-        <section class="exercises-card">
-          <div class="exercises-header"><span>動作清單</span><button class="clear-btn" id="clear">清空</button></div>
-          <div class="exercise-list" id="exercises"></div>
-        </section>
-        <p class="summary-bar">預計總時間 <strong id="total"></strong></p>
-        <div class="controls"><button class="primary-btn" id="start">開始訓練</button></div>
+        <div class="exercises-card">
+          <div class="exercises-header">
+            <span>各回合動作名稱（選填）</span>
+            <button type="button" class="clear-btn" id="clear-exercises-btn">一鍵清空</button>
+          </div>
+          <div class="exercise-list" id="exercise-list"></div>
+        </div>
+
+        <div>
+          <div class="summary-bar">
+            總訓練時長：<strong id="total-time">03:55</strong>
+          </div>
+          <div class="controls">
+            <button type="button" class="primary-btn" id="start-btn">開始訓練</button>
+          </div>
+        </div>
       </div>
     </main>
+
+    <!-- 計時畫面 -->
     <main id="timer-view">
-      <div class="timer-left"><div class="ring-wrapper">
-        <svg viewBox="0 0 260 260" aria-hidden="true">
-          <circle class="ring-bg" cx="130" cy="130" r="118"/>
-          <circle class="ring-progress" id="ring" cx="130" cy="130" r="118" pathLength="100" stroke-dasharray="100"/>
-        </svg>
-        <div class="timer-center">
-          <p class="phase-label" id="phase" aria-live="polite"></p>
-          <p class="time-digits" id="time" role="timer"></p>
+      <div class="timer-left">
+        <div class="ring-wrapper">
+          <svg viewBox="0 0 280 280">
+            <circle class="ring-bg" cx="140" cy="140" r="126"></circle>
+            <circle class="ring-progress" id="ring-bar" cx="140" cy="140" r="126"></circle>
+          </svg>
+          <div class="timer-center">
+            <div class="phase-label" id="phase-text">預備</div>
+            <div class="time-digits" id="time-display">5</div>
+          </div>
         </div>
-      </div></div>
+      </div>
+
       <div class="timer-right">
-        <p class="round-badge" id="round"></p>
-        <div class="current-exercise-box"><p class="current-exercise-title" id="exercise"></p></div>
-        <p class="next-hint" id="next"></p>
+        <div class="round-badge" id="round-display">回合 1 / 8</div>
+
+        <div class="current-exercise-box">
+          <div class="current-exercise-title" id="current-exercise">準備開始</div>
+        </div>
+
+        <div class="next-hint" id="next-hint">接下來：第 1 組訓練（20 秒）</div>
+
         <div class="controls">
-          <button class="secondary-btn" id="stop">返回設定</button>
-          <button class="primary-btn" id="pause">暫停</button>
+          <button type="button" class="secondary-btn" id="stop-btn">結束</button>
+          <button type="button" class="primary-btn" id="pause-btn">暫停</button>
         </div>
       </div>
     </main>
   </div>
-  <style>
-    #settings { justify-content: flex-start; }
-    .exercise-input { min-width: 0; }
-    .ring-wrapper { max-width: 100%; }
-    .time-digits { font-size: clamp(3.3rem, 8vw, 5.2rem); }
-    #pause[hidden] { display: none; }
-    button:focus-visible, input:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
-  </style>
-  <script>
-    const el = id => document.getElementById(id);
-    const config = [
-      { label: '準備時間', unit: '秒', min: 0, max: 60 },
-      { label: '訓練時間', unit: '秒', min: 1, max: 300 },
-      { label: '休息時間', unit: '秒', min: 0, max: 300 },
-      { label: '訓練輪數', unit: '輪', min: 1, max: 30 }
-    ];
-    const presets = [
-      { name: '經典Tabata', values: [10, 20, 10, 8] },
-      { name: '高強度HIIT', values: [5, 40, 20, 6] },
-      { name: '循環訓練', values: [10, 30, 15, 6] }
-    ];
-    let settings = [...presets[0].values];
-    const exercises = [];
-    const values = [];
-    let stages = [];
-    let stage = 0;
-    let deadline = 0;
-    let remaining = 0;
-    let paused = false;
-    let frame;
-    let sound = true;
-    let audio;
-    let audioOutput;
-    let lastSecond;
-    const soundVolume = 0.30;
 
-    function format(seconds) {
-      return [Math.floor(seconds / 60), seconds % 60]
-        .map(value => String(value).padStart(2, '0')).join(':');
+  <script>
+    const config = {
+      prep: 5,
+      work: 20,
+      rest: 10,
+      rounds: 8,
+      exercises: Array(8).fill('')
+    };
+
+    let soundEnabled = true;
+    let audioCtx = null;
+    let wakeLock = null;
+
+    let timerId = null;
+    let isPaused = false;
+    let currentPhase = 'prep';
+    let currentRound = 1;
+    let phaseDuration = 5;
+    let remainingMs = 5000;
+    let lastTick = 0;
+    let lastProcessedSecond = null;
+    let lastBeatSlot = null;
+
+    const radius = 126;
+    const circumference = 2 * Math.PI * radius;
+    let ringBar = null;
+
+    function ensureExerciseArrayLength() {
+      while (config.exercises.length < config.rounds) {
+        config.exercises.push('');
+      }
+      if (config.exercises.length > config.rounds) {
+        config.exercises = config.exercises.slice(0, config.rounds);
+      }
     }
 
-    function renderExercises() {
-      const inputs = Array.from({ length: settings[3] }, (_, index) => {
+    function getExerciseName(roundIndex) {
+      const name = (config.exercises[roundIndex - 1] || '').trim();
+      return name || `第 ${roundIndex} 組訓練`;
+    }
+
+    function loadSavedConfig() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('tabata_cfg_v8'));
+        if (saved && typeof saved === 'object') {
+          if (typeof saved.prep === 'number') config.prep = saved.prep;
+          if (typeof saved.work === 'number') config.work = saved.work;
+          if (typeof saved.rest === 'number') config.rest = saved.rest;
+          if (typeof saved.rounds === 'number') config.rounds = saved.rounds;
+          if (Array.isArray(saved.exercises)) config.exercises = saved.exercises;
+        }
+      } catch (e) {}
+      ensureExerciseArrayLength();
+      renderSetup();
+    }
+
+    function saveConfig() {
+      try {
+        localStorage.setItem('tabata_cfg_v8', JSON.stringify(config));
+      } catch (e) {}
+    }
+
+    function adjust(key, delta) {
+      if (key === 'rounds') {
+        config.rounds = Math.min(50, Math.max(1, config.rounds + delta));
+        ensureExerciseArrayLength();
+      } else if (key === 'prep' || key === 'rest') {
+        config[key] = Math.min(300, Math.max(0, config[key] + delta));
+      } else {
+        config[key] = Math.min(600, Math.max(5, config[key] + delta));
+      }
+      saveConfig();
+      renderSetup();
+    }
+
+    function applyPreset(prep, work, rest, rounds) {
+      config.prep = prep;
+      config.work = work;
+      config.rest = rest;
+      config.rounds = rounds;
+      config.exercises = Array(rounds).fill('');
+      saveConfig();
+      renderSetup();
+    }
+
+    function clearExercises() {
+      config.exercises = Array(config.rounds).fill('');
+      saveConfig();
+      renderExerciseInputs();
+    }
+
+    function updateExerciseName(idx, value) {
+      config.exercises[idx] = value;
+      saveConfig();
+    }
+
+    function renderExerciseInputs() {
+      const listEl = document.getElementById('exercise-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+      for (let i = 0; i < config.rounds; i++) {
         const row = document.createElement('div');
         row.className = 'exercise-row';
-        const badge = document.createElement('span');
-        badge.className = 'round-tag';
-        badge.textContent = index + 1;
+
+        const tag = document.createElement('div');
+        tag.className = 'round-tag';
+        tag.textContent = `#${i + 1}`;
+
         const input = document.createElement('input');
+        input.type = 'text';
         input.className = 'exercise-input';
-        input.placeholder = '例如：深蹲';
-        input.setAttribute('aria-label', '第 ' + (index + 1) + ' 輪動作');
-        input.value = exercises[index] || '';
-        input.maxLength = 60;
-        input.addEventListener('input', () => { exercises[index] = input.value; });
-        row.append(badge, input);
-        return row;
-      });
-      el('exercises').replaceChildren(...inputs);
+        input.placeholder = `第 ${i + 1} 組動作名稱`;
+        input.value = config.exercises[i] || '';
+        input.addEventListener('input', (e) => updateExerciseName(i, e.target.value));
+
+        row.appendChild(tag);
+        row.appendChild(input);
+        listEl.appendChild(row);
+      }
     }
 
-    function renderSettings() {
-      config.forEach(({ unit, min, max }, index) => {
-        const { value, minus, plus } = values[index];
-        value.textContent = settings[index] + ' ' + unit;
-        minus.disabled = settings[index] === min;
-        plus.disabled = settings[index] === max;
-      });
-      const [prep, work, rest, rounds] = settings;
-      el('total').textContent = format(prep + work * rounds + rest * (rounds - 1));
-      if (el('exercises').children.length !== rounds) renderExercises();
+    function renderSetup() {
+      document.getElementById('val-prep').textContent = `${config.prep}s`;
+      document.getElementById('val-work').textContent = `${config.work}s`;
+      document.getElementById('val-rest').textContent = `${config.rest}s`;
+      document.getElementById('val-rounds').textContent = config.rounds;
+
+      const totalSec = config.prep + (config.work * config.rounds) + (config.rest * Math.max(0, config.rounds - 1));
+      const mins = String(Math.floor(totalSec / 60)).padStart(2, '0');
+      const secs = String(totalSec % 60).padStart(2, '0');
+      document.getElementById('total-time').textContent = `${mins}:${secs}`;
+
+      renderExerciseInputs();
     }
 
-    config.forEach(({ label }, index) => {
-      const card = document.createElement('div');
-      card.className = 'setting-card';
-      card.innerHTML = '<span class="setting-info"></span><div class="stepper"><button class="step-btn">−</button><span class="step-val"></span><button class="step-btn">+</button></div>';
-      card.firstElementChild.textContent = label;
-      const [minus, value, plus] = card.lastElementChild.children;
-      values.push({ minus, value, plus });
-      [[minus, -1, '減少'], [plus, 1, '增加']].forEach(([button, delta, action]) => {
-        button.setAttribute('aria-label', action + label);
-        button.onclick = () => {
-          settings[index] += delta;
-          renderSettings();
-        };
-      });
-      el('settings').append(card);
-    });
-
-    presets.forEach(({ name, values: preset }) => {
-      const button = document.createElement('button');
-      button.className = 'preset-btn';
-      button.textContent = name;
-      const caption = document.createElement('span');
-      caption.textContent = preset[1] + '秒訓練 / ' + preset[2] + '秒休息' + ' ×' + preset[3];
-      button.append(caption);
-      button.onclick = () => {
-        settings = [...preset];
-        renderSettings();
-      };
-      el('presets').append(button);
-    });
-
-    function unlockAudio() {
-      if (!sound) return;
-      const Audio = window.AudioContext || window.webkitAudioContext;
-      if (!Audio) return;
+    function initAudio() {
       try {
-        if (!audio) {
-          audio = new Audio();
-          audioOutput = audio.createGain();
-          audioOutput.gain.value = paused ? 0 : soundVolume;
-          audioOutput.connect(audio.destination);
+        if (!audioCtx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) audioCtx = new AudioContext();
         }
-        return audio.resume().catch(() => {});
-      } catch {
-        audio = undefined;
-        audioOutput = undefined;
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      } catch (e) {}
+    }
+
+    function playTone(freq, duration, type = 'sine', delay = 0, volume = 0.35) {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime + delay;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      } catch (e) {}
+    }
+
+    // 電影計時炸彈電子蜂鳴器 Beep（沉穩不刺耳的中高頻脈衝 + 低八度厚度）
+    function playBombBeep(level = 1) {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        // level 1: 前段倒數 / level 2: 最後 5 秒
+        const freq = level === 2 ? 1480 : 1250;
+        const dur = level === 2 ? 0.075 : 0.09;
+        const vol = level === 2 ? 0.32 : 0.28;
+
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(freq, now);
+
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(freq * 0.5, now);
+
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.setValueAtTime(vol * 0.9, now + dur * 0.7);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + dur);
+        osc2.stop(now + dur);
+      } catch (e) {}
+    }
+
+    // 炸彈引爆衝擊音效（重低音震波 + 白噪音爆破）
+    function playBombExplosion() {
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+
+        const subOsc = audioCtx.createOscillator();
+        const subGain = audioCtx.createGain();
+        subOsc.type = 'sawtooth';
+        subOsc.frequency.setValueAtTime(160, now);
+        subOsc.frequency.exponentialRampToValueAtTime(28, now + 0.55);
+
+        subGain.gain.setValueAtTime(0.55, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+        subOsc.connect(subGain);
+        subGain.connect(audioCtx.destination);
+        subOsc.start(now);
+        subOsc.stop(now + 0.6);
+
+        const bufferSize = Math.floor(audioCtx.sampleRate * 0.65);
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = noiseBuffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1200, now);
+        filter.frequency.exponentialRampToValueAtTime(140, now + 0.6);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.5, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+
+        noise.start(now);
+        noise.stop(now + 0.65);
+      } catch (e) {}
+    }
+
+    function playCue(type) {
+      if (type === 'bomb-1') playBombBeep(1);
+      if (type === 'bomb-2') playBombBeep(2);
+      if (type === 'boom') playBombExplosion();
+
+      // 預備與休息階段最後 3 秒提示音
+      if (type === 'countdown-warn') playTone(660, 0.14, 'sine', 0, 0.4);
+
+      // 開始運動：明亮清脆的上揚雙音和弦（C6 -> E6 + 高音泛音）
+      if (type === 'work') {
+        playTone(1046.5, 0.14, 'triangle', 0, 0.45);
+        playTone(1318.5, 0.34, 'triangle', 0.09, 0.5);
+        playTone(2093.0, 0.28, 'sine', 0.09, 0.22);
+      }
+
+      // 進入休息：柔和下降提示音
+      if (type === 'rest') {
+        playTone(587.33, 0.16, 'sine', 0.12, 0.32);
+        playTone(440.0, 0.32, 'sine', 0.22, 0.35);
+      }
+
+      // 全部完成：勝利三連音
+      if (type === 'done') {
+        playTone(523.25, 0.16, 'triangle', 0.18, 0.4);
+        playTone(659.25, 0.16, 'triangle', 0.33, 0.4);
+        playTone(1046.5, 0.48, 'triangle', 0.48, 0.48);
       }
     }
 
-    function beep(frequency, duration = 0.22, level = 1, type = 'sine') {
-      if (!sound || paused || audio?.state !== 'running') return;
-      const wave = audio.createOscillator();
-      const volume = audio.createGain();
-      const start = audio.currentTime;
-      wave.type = type;
-      wave.frequency.value = frequency;
-      volume.gain.setValueAtTime(level, start);
-      volume.gain.exponentialRampToValueAtTime(0.001, start + duration);
-      wave.connect(volume).connect(audioOutput);
-      wave.start(start);
-      wave.stop(start + duration);
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (e) {}
     }
 
-    function renderStage() {
-      const current = stages[stage];
-      const next = stages[stage + 1];
-      const labels = { prep: '準備', work: '訓練', rest: '休息', done: '完成' };
-      const name = round => exercises[round - 1]?.trim() || '第 ' + round + ' 輪訓練';
-      document.body.className = 'state-' + (current?.type || 'done');
-      el('phase').textContent = labels[current?.type || 'done'];
-      el('round').textContent = '第 ' + (current?.round || settings[3]) + ' / ' + settings[3] + ' 輪';
-      el('exercise').textContent = current ? name(current.type === 'rest' ? current.round + 1 : current.round) : '訓練完成';
-      el('next').textContent = current
-        ? next ? '接下來 ' + labels[next.type] + (next.type === 'work' ? ' · ' + name(next.round) : '') : '接下來 完成'
-        : '已完成 ' + settings[3] + ' 輪';
-      el('pause').hidden = !current;
+    function releaseWakeLock() {
+      try {
+        if (wakeLock) {
+          wakeLock.release().catch(() => {});
+          wakeLock = null;
+        }
+      } catch (e) {}
     }
 
-    function paintTime(milliseconds, duration) {
-      el('time').textContent = format(Math.ceil(milliseconds / 1000));
-      el('ring').style.strokeDashoffset = duration ? 100 * (1 - milliseconds / duration) : 100;
+    function startWorkout() {
+      initAudio();
+      requestWakeLock();
+      document.getElementById('setup-view').style.display = 'none';
+      document.getElementById('timer-view').style.display = 'flex';
+      isPaused = false;
+      document.getElementById('pause-btn').textContent = '暫停';
+      currentRound = 1;
+
+      if (config.prep > 0) {
+        enterPhase('prep', config.prep);
+      } else {
+        enterPhase('work', config.work);
+        playCue('work');
+      }
+
+      lastTick = performance.now();
+      timerId = requestAnimationFrame(loop);
     }
 
-    function tick() {
-      const now = performance.now();
-      const previous = stage;
-      while (stage < stages.length && now >= deadline) {
-        stage++;
-        if (stages[stage]) deadline += stages[stage].duration;
+    function enterPhase(phase, seconds) {
+      currentPhase = phase;
+      phaseDuration = seconds;
+      remainingMs = seconds * 1000;
+      lastProcessedSecond = seconds;
+      lastBeatSlot = null;
+
+      document.body.className = `state-${phase}`;
+      document.getElementById('round-display').textContent = `回合 ${currentRound} / ${config.rounds}`;
+
+      const phaseLabels = {
+        prep: '預備',
+        work: '運動！',
+        rest: '休息',
+        done: '完成！'
+      };
+      document.getElementById('phase-text').textContent = phaseLabels[phase];
+
+      const currentExEl = document.getElementById('current-exercise');
+      const nextHintEl = document.getElementById('next-hint');
+
+      if (phase === 'prep') {
+        currentExEl.textContent = '調整呼吸，準備開始';
+        nextHintEl.textContent = `第一個動作：${getExerciseName(1)}（${config.work} 秒）`;
+      } else if (phase === 'work') {
+        currentExEl.textContent = getExerciseName(currentRound);
+        if (currentRound < config.rounds) {
+          const nextAction = getExerciseName(currentRound + 1);
+          nextHintEl.textContent = config.rest > 0
+            ? `接下來：休息 ${config.rest} 秒 → ${nextAction}`
+            : `下一個動作：${nextAction}`;
+        } else {
+          nextHintEl.textContent = '最後一回合，撐住！';
+        }
+      } else if (phase === 'rest') {
+        currentExEl.textContent = '組間休息';
+        nextHintEl.textContent = `下一個動作：${getExerciseName(currentRound + 1)}（${config.work} 秒）`;
+      } else {
+        currentExEl.textContent = '訓練完成！';
+        nextHintEl.textContent = `共完成 ${config.rounds} 回合訓練`;
       }
-      if (stage !== previous) {
-        renderStage();
-        lastSecond = undefined;
-      }
-      const current = stages[stage];
-      if (!current) {
-        beep(880);
-        paintTime(0, 0);
-        el('stop').focus();
-        return;
-      }
-      remaining = Math.max(0, deadline - now);
-      const seconds = Math.ceil(remaining / 1000);
-      if (seconds !== lastSecond) {
-        lastSecond = seconds;
-        if (current.type === 'work') {
-          const elapsedSeconds = current.duration / 1000 - seconds;
-          if (stage !== previous) beep(1040);
-          else if (elapsedSeconds > 0) {
-            beep(elapsedSeconds % 2 ? 620 : 440, 0.08, 0.66, 'triangle');
+
+      updateDisplay();
+    }
+
+    function loop(now) {
+      if (!isPaused && currentPhase !== 'done') {
+        const dt = now - lastTick;
+        remainingMs -= dt;
+
+        const secLeft = Math.ceil(remainingMs / 1000);
+
+        if (currentPhase === 'work' && remainingMs > 0) {
+          // 兩段式計時炸彈倒數：
+          // 最後 5 秒：每 500ms 雙響 / 前段倒數：每 1000ms 單響
+          if (remainingMs <= 5000) {
+            const slot = `h-${Math.ceil(remainingMs / 500)}`;
+            if (slot !== lastBeatSlot) {
+              lastBeatSlot = slot;
+              playCue('bomb-2');
+            }
+          } else {
+            const slot = `s-${secLeft}`;
+            if (slot !== lastBeatSlot && secLeft < phaseDuration) {
+              lastBeatSlot = slot;
+              playCue('bomb-1');
+            }
           }
-        } else if (current.type === 'rest') {
-          if (seconds <= 3) beep(740, 0.14);
-          else if (stage !== previous) beep(520);
+        } else if ((currentPhase === 'rest' || currentPhase === 'prep') && secLeft >= 1 && secLeft !== lastProcessedSecond) {
+          lastProcessedSecond = secLeft;
+          if (secLeft <= 3) {
+            playCue('countdown-warn');
+          }
+        }
+
+        if (remainingMs <= 0) {
+          advancePhase();
+        } else {
+          updateDisplay();
         }
       }
-      paintTime(remaining, current.duration);
-      frame = requestAnimationFrame(tick);
+      lastTick = now;
+      if (currentPhase !== 'done') {
+        timerId = requestAnimationFrame(loop);
+      }
     }
 
-    el('start').onclick = () => {
-      const audioReady = unlockAudio();
-      const [prep, work, rest, rounds] = settings;
-      stages = [];
-      if (prep) stages.push({ type: 'prep', duration: prep * 1000, round: 1 });
-      for (let round = 1; round <= rounds; round++) {
-        stages.push({ type: 'work', duration: work * 1000, round });
-        if (rest && round < rounds) stages.push({ type: 'rest', duration: rest * 1000, round });
-      }
-      stage = 0;
-      paused = false;
-      if (audioOutput) audioOutput.gain.value = sound ? soundVolume : 0;
-      lastSecond = undefined;
-      const first = stages[0];
-      deadline = performance.now() + first.duration;
-      el('setup-view').style.display = 'none';
-      el('timer-view').style.display = 'flex';
-      el('pause').textContent = '暫停';
-      renderStage();
-      el('pause').focus();
-      tick();
-      if (first.type === 'work') {
-        audioReady?.then(() => {
-          if (stages[stage] === first && lastSecond === first.duration / 1000 && frame !== undefined) {
-            beep(1040);
+    function advancePhase() {
+      if (currentPhase === 'prep') {
+        enterPhase('work', config.work);
+        playCue('work');
+      } else if (currentPhase === 'work') {
+        playCue('boom');
+        if (currentRound < config.rounds) {
+          if (config.rest > 0) {
+            enterPhase('rest', config.rest);
+            playCue('rest');
+          } else {
+            currentRound++;
+            enterPhase('work', config.work);
+            playCue('work');
           }
-        });
+        } else {
+          enterPhase('done', 0);
+          playCue('done');
+          releaseWakeLock();
+          document.getElementById('pause-btn').style.display = 'none';
+        }
+      } else if (currentPhase === 'rest') {
+        currentRound++;
+        enterPhase('work', config.work);
+        playCue('work');
       }
-    };
+    }
 
-    el('pause').onclick = () => {
-      if (paused) {
-        unlockAudio();
-        deadline = performance.now() + remaining;
-        paused = false;
-        if (audioOutput) audioOutput.gain.value = sound ? soundVolume : 0;
-        el('pause').textContent = '暫停';
-        tick();
-        return;
+    function updateDisplay() {
+      const secLeft = Math.max(0, Math.ceil(remainingMs / 1000));
+      document.getElementById('time-display').textContent = currentPhase === 'done' ? '✓' : secLeft;
+
+      if (ringBar) {
+        const ratio = phaseDuration > 0 ? Math.max(0, remainingMs / (phaseDuration * 1000)) : 1;
+        const offset = circumference * (1 - ratio);
+        ringBar.style.strokeDashoffset = offset;
       }
-      cancelAnimationFrame(frame);
-      if (audioOutput) audioOutput.gain.value = 0;
-      remaining = Math.max(0, deadline - performance.now());
-      paused = true;
-      paintTime(remaining, stages[stage].duration);
-      el('pause').textContent = '繼續';
-      el('phase').textContent = '已暫停';
-    };
-    el('pause').addEventListener('click', () => {
-      if (!paused && stages[stage]) renderStage();
-    });
+    }
 
-    el('stop').onclick = () => {
-      cancelAnimationFrame(frame);
-      frame = undefined;
-      if (audioOutput) audioOutput.gain.value = 0;
+    function togglePause() {
+      isPaused = !isPaused;
+      document.getElementById('pause-btn').textContent = isPaused ? '繼續' : '暫停';
+      if (!isPaused) {
+        initAudio();
+        lastTick = performance.now();
+      }
+    }
+
+    function stopWorkout() {
+      cancelAnimationFrame(timerId);
+      releaseWakeLock();
       document.body.className = '';
-      el('timer-view').style.display = 'none';
-      el('setup-view').style.removeProperty('display');
-      el('start').focus();
-    };
+      document.getElementById('timer-view').style.display = 'none';
+      document.getElementById('setup-view').style.display = '';
+      document.getElementById('pause-btn').style.display = 'block';
+    }
 
-    el('clear').onclick = () => {
-      exercises.length = 0;
-      renderExercises();
-    };
+    function registerOfflineSupport() {
+      try {
+        const badge = document.getElementById('offline-badge');
+        if ('caches' in window && location.protocol && location.protocol.startsWith('http')) {
+          caches.open('tabata-offline-v2').then((cache) => {
+            const htmlContent = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+            const response = new Response(htmlContent, {
+              headers: { 'Content-Type': 'text/html; charset=utf-8' }
+            });
+            return cache.put(location.href, response);
+          }).then(() => {
+            if (badge) badge.classList.add('ready');
+          }).catch(() => {});
+        }
+      } catch (e) {}
+    }
 
-    el('sound-toggle').setAttribute('aria-pressed', 'true');
-    el('sound-toggle').onclick = () => {
-      sound = !sound;
-      el('sound-toggle').textContent = sound ? '🔊' : '🔇';
-      el('sound-toggle').setAttribute('aria-pressed', String(sound));
-      if (audioOutput) audioOutput.gain.value = sound && !paused ? soundVolume : 0;
-      unlockAudio();
-    };
-    if (location.protocol === 'file:') el('offline-badge').classList.add('ready');
-    renderSettings();
+    document.addEventListener('DOMContentLoaded', () => {
+      ringBar = document.getElementById('ring-bar');
+      if (ringBar) {
+        ringBar.style.strokeDasharray = `${circumference} ${circumference}`;
+      }
+
+      document.getElementById('sound-toggle').addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        document.getElementById('sound-toggle').textContent = soundEnabled ? '🔊' : '🔇';
+        if (soundEnabled) {
+          initAudio();
+          playBombBeep(2);
+        }
+      });
+
+      document.getElementById('preset-tabata').addEventListener('click', () => applyPreset(5, 20, 10, 8));
+      document.getElementById('preset-hiit').addEventListener('click', () => applyPreset(5, 40, 20, 6));
+      document.getElementById('preset-circuit').addEventListener('click', () => applyPreset(5, 30, 15, 6));
+
+      document.querySelectorAll('.step-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-key');
+          const delta = parseInt(btn.getAttribute('data-delta'), 10);
+          adjust(key, delta);
+        });
+      });
+
+      document.getElementById('clear-exercises-btn').addEventListener('click', clearExercises);
+      document.getElementById('start-btn').addEventListener('click', startWorkout);
+      document.getElementById('stop-btn').addEventListener('click', stopWorkout);
+      document.getElementById('pause-btn').addEventListener('click', togglePause);
+
+      loadSavedConfig();
+      registerOfflineSupport();
+    });
   </script>
 </body>
 </html>
